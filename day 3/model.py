@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 
-START_TAG = '<START>'
-END_TAG = '<END>'
-PAD_TAG = '<PAD>'
+START_TAG = '<start>'
+END_TAG = '<end>'
+PAD_TAG = '<pad>'
 
 
 # BiLSTM+CRF
