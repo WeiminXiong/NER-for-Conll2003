@@ -5,6 +5,7 @@ from torch.optim import Adam
 from tqdm.std import trange
 from model import BiLSTM_CRF
 from dataset import read_data, collate_fn, conll2003, vocab, split_data_and_tag, combine_data_and_tag
+from parse_file import parse_file
 import os
 
 Train = False
@@ -60,65 +61,84 @@ train_bar = tqdm(desc="train", total=len(train_data)//batch_size +1, position=1,
 valid_bar = tqdm(desc="valid", total=len(valid_data)//batch_size +1, position=1, leave=True)
 model.load_state_dict(torch.load(save_path))
 
-if Train:
-    for epoch in range(num_epoch):
-        train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
-        valid_dataloader = DataLoader(valid_dataset, batch_size, shuffle=True, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
-        train_loss_sum = 0
-        train_batch_size = 0
-        valid_loss_sum = 0
-        valid_batch_size = 0
-        running_loss = 0
+# if Train:
+#     for epoch in range(num_epoch):
+#         train_dataloader = DataLoader(train_dataset, batch_size, shuffle=True, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
+#         valid_dataloader = DataLoader(valid_dataset, batch_size, shuffle=True, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
+#         train_loss_sum = 0
+#         train_batch_size = 0
+#         valid_loss_sum = 0
+#         valid_batch_size = 0
+#         running_loss = 0
         
-        # 训练
-        model.train()
-        for sentences, tags, lengths in train_dataloader:
-            sentences=sentences.to('cuda')
-            tags = tags.to('cuda')
-            optimizer.zero_grad()
-            batch_loss = model.neg_log_likelihood(sentences, tags, lengths)
-            train_loss_sum += batch_loss.sum().item()
-            train_batch_size += len(sentences)
-            loss = batch_loss.mean()
-            loss.backward()
-            optimizer.step()
-            running_loss = train_loss_sum / train_batch_size
+#         # 训练
+#         model.train()
+#         for sentences, tags, lengths in train_dataloader:
+#             sentences=sentences.to('cuda')
+#             tags = tags.to('cuda')
+#             optimizer.zero_grad()
+#             batch_loss = model.neg_log_likelihood(sentences, tags, lengths)
+#             train_loss_sum += batch_loss.sum().item()
+#             train_batch_size += len(sentences)
+#             loss = batch_loss.mean()
+#             loss.backward()
+#             optimizer.step()
+#             running_loss = train_loss_sum / train_batch_size
 
-            train_bar.set_postfix(loss=running_loss, epoch=epoch)
-            train_bar.update()
+#             train_bar.set_postfix(loss=running_loss, epoch=epoch)
+#             train_bar.update()
 
-        # 验证
-        running_loss = 0
-        model.eval()
-        with torch.no_grad():
-            for sentences, tags, lengths in valid_dataloader:
-                sentences = sentences.to('cuda')
-                tags = tags.to('cuda')
-                batch_loss = model.neg_log_likelihood(sentences, tags, lengths)
-                valid_loss_sum += batch_loss.sum().item()
-                valid_batch_size += len(sentences)
+#         # 验证
+#         running_loss = 0
+#         model.eval()
+#         with torch.no_grad():
+#             for sentences, tags, lengths in valid_dataloader:
+#                 sentences = sentences.to('cuda')
+#                 tags = tags.to('cuda')
+#                 batch_loss = model.neg_log_likelihood(sentences, tags, lengths)
+#                 valid_loss_sum += batch_loss.sum().item()
+#                 valid_batch_size += len(sentences)
                 
-                running_loss = valid_loss_sum/ valid_batch_size
-                valid_bar.set_postfix(loss=running_loss, epoch=epoch)
-                valid_bar.update()
+#                 running_loss = valid_loss_sum/ valid_batch_size
+#                 valid_bar.set_postfix(loss=running_loss, epoch=epoch)
+#                 valid_bar.update()
         
-        train_bar.n = 0
-        valid_bar.n = 0
-        epoch_bar.update()
-        torch.save(model.state_dict(), save_path)
-else:
-    model.eval()
-    test_bar = tqdm(desc='test', total= len(test_data)//batch_size+1)
-    test_dataloader = DataLoader(test_dataset, batch_size, False, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
-    result_file_path = 'result.txt'
-    with open(result_file_path, 'w') as result_file:
-        for sentences, tags, lengths in test_dataloader:
-            sentences = sentences.to('cuda')
-            tags = tags.to('cuda')
-            score, predict_tags = model._predict(sentences, lengths)
-            for sentence, tag, predict_tag in zip(sentences, tags, predict_tags):
-                sentence, tag, predict_tag = sentence[1: -1], tag[1: -1], predict_tag[1:-1]
-                for token, true_tag, predict in zip(sentence, tag, predict_tag):
-                    result_file.write(' '.join([sentence_vocab.index_to_token[token], tag_vocab.index_to_token[true_tag], tag_vocab.index_to_token[predict]])+ '\n')
-                result_file.write('\n')
-            test_bar.update()
+#         train_bar.n = 0
+#         valid_bar.n = 0
+#         epoch_bar.update()
+#         torch.save(model.state_dict(), save_path)
+# else:
+#     model.eval()
+#     test_bar = tqdm(desc='test', total= len(test_data)//batch_size+1)
+#     test_dataloader = DataLoader(test_dataset, batch_size, False, collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
+#     result_file_path = 'result.txt'
+#     with open(result_file_path, 'w') as result_file:
+#         for sentences, tags, lengths in test_dataloader:
+#             sentences = sentences.to('cuda')
+#             tags = tags.to('cuda')
+#             score, predict_tags = model._predict(sentences, lengths)
+#             for sentence, tag, predict_tag in zip(sentences, tags, predict_tags):
+#                 sentence, tag, predict_tag = sentence[1: -1], tag[1: -1], predict_tag[1:-1]
+#                 for token, true_tag, predict in zip(sentence, tag, predict_tag):
+#                     result_file.write(' '.join([sentence_vocab.index_to_token[token], tag_vocab.index_to_token[true_tag], tag_vocab.index_to_token[predict]])+ '\n')
+#                 result_file.write('\n')
+#             test_bar.update()
+
+before_parsed_data = parse_file("./day_3/test_file.txt")
+parsed_sentences, parsed_tags = split_data_and_tag(before_parsed_data)
+parsed_data = combine_data_and_tag(parsed_sentences, parsed_tags, sentence_vocab, tag_vocab)
+parsed_dataset = conll2003(parsed_data)
+parsed_dataloader = DataLoader(parsed_dataset, batch_size, False,collate_fn = collate_fn(sentence_vocab.pad, tag_vocab.pad))
+model.eval()
+parsed_path = 'parsed.txt'
+with open(parsed_path, 'w') as f:
+    for sentences, tags, lengths in parsed_dataloader:
+        sentences = sentences.to('cuda')
+        tags = tags.to('cuda')
+        score, predicted_tags = model._predict(sentences, lengths)
+        for sentence, tag in zip(sentences, predicted_tags):
+            sentence = sentence[1: -1]
+            tag = tag[1: -1]
+            for token, true_tag in zip(sentence, tag):
+                f.write(' '.join([sentence_vocab.index_to_token[token], tag_vocab.index_to_token[true_tag]])+'\n')
+            f.write('\n')
